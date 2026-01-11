@@ -1,6 +1,6 @@
-# plex-album-auto-rater
+# Plex Album Rating Engine
 
-Automatically rate Plex albums based on individual track ratings using a fair, confidence-aware algorithm.
+Automatically rate Plex albums based on individual track ratings using a fair, confidence-aware algorithm that accounts for unrated tracks and can exclude intros or skits.
 
 ## Features
 

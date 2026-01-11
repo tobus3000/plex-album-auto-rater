@@ -234,6 +234,19 @@ The rating algorithm is based on a Bayesian Shrinkage Rating system.
 
 > Start with a neutral prior and let real ratings pull the album toward its true value as confidence increases.
 
+### Understanding the Rating Scale
+
+The algorithm calculates ratings on a **1–5 star scale** (matching Plex's user-facing display).  
+However, Plex stores ratings internally using a **1–10 scale** (called "tenths"). The conversion is automatic:
+
+- Algorithm calculates: **3.0 stars**
+- Plex stores internally: **6 (tenths)**
+- Plex UI displays: **3 stars** ✓
+
+The formula multiplies the final result by 2 to account for this conversion: `plex_rating = ceil(final_rating × 2)`
+
+This ensures what you see in the UI matches what the algorithm calculated.
+
 ### Features of this algorithm
 
 - Assume unrated tracks are neutral (not bad, not amazing)

@@ -11,7 +11,7 @@ Environment Variables:
     DRY_RUN (str): Preview mode without modifying ratings. Defaults to "true".
         Set to "false" to apply ratings to Plex.
     NEUTRAL_RATING (str): Neutral prior rating for Bayesian calculation.
-        Defaults to "3.0" (range: 1-10).
+        Defaults to "2.5" (midpoint of 1-5 star scale; range: 1-5).
     CONFIDENCE_WEIGHT (str): Confidence weight parameter for Bayesian shrinkage.
         Defaults to "4" (higher = more conservative).
     MIN_COVERAGE (str): Minimum fraction of rated tracks required to rate album.
@@ -46,7 +46,7 @@ DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 UNRATE_EMPTY_ALBUMS = os.getenv("UNRATE_EMPTY_ALBUMS", "false").lower() == "true"
 
 # Rating algorithm tuning
-NEUTRAL_RATING = float(os.getenv("NEUTRAL_RATING", "3.0"))
+NEUTRAL_RATING = float(os.getenv("NEUTRAL_RATING", "2.5"))  # 2.5 = midpoint of 1-5 star scale
 CONFIDENCE_WEIGHT = int(os.getenv("CONFIDENCE_WEIGHT", "4"))
 MIN_COVERAGE = float(os.getenv("MIN_COVERAGE", "0.2"))  # 20% rated tracks minimum
 MIN_TRACK_DURATION = int(os.getenv("MIN_TRACK_DURATION", "60"))  # seconds (exclude intros/skits)
@@ -62,12 +62,12 @@ def calculate_album_rating(
     reliable album rating. Albums with insufficient track coverage are excluded.
     
     Args:
-        rated_track_ratings: List of user ratings for individual tracks (1-10 scale).
+        rated_track_ratings: List of user ratings for individual tracks (1-5 star scale).
         rated_track_count: Number of rated tracks in the album.
         total_tracks: Total number of tracks in the album.
     
     Returns:
-        Album rating (1-10 scale) or None if coverage threshold not met or no rated tracks.
+        Album rating for Plex's internal 1-10 scale or None if coverage threshold not met or no rated tracks.
     """
 
     if rated_track_count == 0:
@@ -93,7 +93,9 @@ def calculate_album_rating(
         NEUTRAL_RATING * (1 - coverage)
     )
 
-    return math.ceil(final_rating)
+    # Convert from 1-5 star scale to Plex's 1-10 internal scale (multiply by 2)
+    plex_rating = math.ceil(final_rating * 2)
+    return plex_rating
 
 def process_album_tracks(album) -> List[float]:
     """Extract user ratings from rated tracks in an album.

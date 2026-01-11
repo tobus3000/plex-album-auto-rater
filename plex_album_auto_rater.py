@@ -79,6 +79,10 @@ def calculate_album_rating(
 
     avg_rating = sum(rated_track_ratings) / rated_track_count
 
+    # Hard floor: bad albums with high coverage get a 1-star rating
+    if coverage >= 0.7 and avg_rating <= 1.3:
+        return 1
+
     bayesian_rating = (
         (rated_track_count * avg_rating) +
         (CONFIDENCE_WEIGHT * NEUTRAL_RATING)

@@ -261,6 +261,22 @@ album_rating =
   ((n * R̄) + (k * C)) / (n + k)
 ```
 
+#### Hard floor rule
+
+Before applying coverage penalty, check if the album is consistently bad:
+
+```python
+if coverage >= 0.7 and avg_rating <= 1.3:
+    return 1
+```
+
+This ensures albums with **70%+ coverage** and **average rating ≤ 1.3** get an immediate 1-star rating. This is useful because:
+
+- Bayesian shrinkage normally pulls bad albums toward the neutral rating
+- A hard floor prevents underrated bad albums from being smoothed out
+
+**Example:** An album with 8/10 tracks rated at 1 star each would normally smooth toward 3.0 (neutral). The hard floor prevents this and keeps it at 1 star for easy cleanup.
+
 Then apply coverage penalty:
 
 ```python

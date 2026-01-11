@@ -167,13 +167,7 @@ git checkout v1.0.0
 docker-compose build --no-cache
 ```
 
-1. Test with dry-run mode first:
-
-```bash
-DRY_RUN=true docker-compose up plex-album-auto-rater
-```
-
-1. Once verified, run with your configured settings:
+1. Run with your configured settings (maybe in dry-run mode first):
 
 ```bash
 docker-compose up plex-album-auto-rater

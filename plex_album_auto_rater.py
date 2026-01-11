@@ -220,7 +220,11 @@ def apply_album_rating(album, new_rating: Optional[int]) -> bool:
 
     try:
         album.rate(new_rating)
-        logger.info("Successfully rated album %s as %s", album.title, new_rating)
+        logger.info(
+            "Successfully rated album %s as %s in Plex (1-10 scale)",
+            album.title,
+            new_rating
+        )
         return True
     except (OSError, ValueError) as e:
         logger.error("Failed to rate album %s: %s", album.title, e)

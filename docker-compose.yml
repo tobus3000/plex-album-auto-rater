@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  plex-album-auto-rater:
+    build: .
+    container_name: plex-album-auto-rater
+    env_file:
+      - .env
+    restart: "no"

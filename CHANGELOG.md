@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cron Integration**: Designed for easy scheduling via system cron jobs
 - **Configuration Template**: `.env-example` file for quick setup
 - **Comprehensive README**: Detailed setup, usage, and workflow documentation
+- **Auto-Unrating Feature**: Optional `UNRATE_EMPTY_ALBUMS` setting to automatically remove ratings from albums when they fall below coverage threshold (e.g., after tracks are manually unrated)
+- **Module Documentation**: Comprehensive module docstring with environment variable descriptions and usage
 
 ### Features
 
@@ -54,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Limitations
 
+- None
 
 ---
 

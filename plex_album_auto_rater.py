@@ -94,7 +94,8 @@ def calculate_album_rating(
     )
 
     # Convert from 1-5 star scale to Plex's 1-10 internal scale (multiply by 2)
-    plex_rating = math.ceil(final_rating * 2)
+    # Cap at 10 to ensure valid Plex rating (0-10)
+    plex_rating = min(math.ceil(final_rating * 2), 10)
     return plex_rating
 
 def process_album_tracks(album) -> List[float]:
@@ -186,18 +187,22 @@ def log_album_update(album, rated_count: int, total_tracks: int,
         album: Plex album object.
         rated_count: Number of rated tracks in the album.
         total_tracks: Total number of tracks in the album.
-        current_rating: Current album rating or None.
-        new_rating: Newly calculated album rating.
+        current_rating: Current album rating (Plex internal 1-10 scale) or None.
+        new_rating: Newly calculated album rating (Plex internal 1-10 scale).
     """
+    # Convert from Plex internal scale (1-10) to user-friendly display (1-5)
+    display_new_rating = new_rating / 2 if new_rating is not None else None
+    display_current_rating = current_rating / 2 if current_rating is not None else None
+    
     status_msg = (
         f"{album.parentTitle} – {album.title}\n"
         f"  Rated tracks : {rated_count}/{total_tracks}\n"
-        f"  New rating   : {new_rating} stars\n"
-        f"  Old rating   : {current_rating or 'None'}\n"
+        f"  New rating   : {display_new_rating} stars\n"
+        f"  Old rating   : {display_current_rating or 'None'}\n"
     )
     logger.info("%s", status_msg)
     logger.info("Album update needed: %s – %s (rating: %s → %s)",
-               album.parentTitle, album.title, current_rating or 'None', new_rating)
+               album.parentTitle, album.title, display_current_rating or 'None', display_new_rating)
 
 
 def apply_album_rating(album, new_rating: Optional[int]) -> bool:

@@ -114,11 +114,33 @@ sudo crontab -e
 1. Add a nightly job (runs at 3:00 AM):
 
 ```cron
-0 3 * * * cd /path-to-plex-album-auto-rater/plex-album-auto-rater && docker-compose up plex-album-auto-rater >> /var/log/plex-album-auto-rater.log 2>&1
+0 3 * * * cd /path-to-plex-album-auto-rater && docker-compose up plex-album-auto-rater
 ```
 
-- Update the path `/path-to-plex-album-auto-rater/plex-album-auto-rater` to your repository location.
-- Logs are saved to /var/log/plex-album-auto-rater.log.
+- Update the path `/path-to-plex-album-auto-rater` to your repository location.
+- Logs are automatically managed by Docker.
+
+### Viewing Logs
+
+The application outputs logs to the Docker container's STDOUT, which Docker automatically captures and rotates.
+
+**View logs in real-time:**
+
+```bash
+docker-compose logs -f plex-album-auto-rater
+```
+
+**View last 50 log lines:**
+
+```bash
+docker-compose logs --tail=50 plex-album-auto-rater
+```
+
+**Log rotation details:**
+
+- Individual log files are limited to **10 MB**
+- Docker keeps the **latest 3 rotated files** (~30 MB total)
+- Logs are stored in Docker's data directory and automatically rotated
 
 ## Updating
 

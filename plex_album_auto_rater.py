@@ -29,10 +29,12 @@ import logging
 from typing import List, Optional
 from plexapi.server import PlexServer
 
-# Configure logging
+# Configure logging to output to console (STDOUT)
+# Docker's logging driver automatically captures and manages log rotation
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
 

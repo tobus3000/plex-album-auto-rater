@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comprehensive README**: Detailed setup, usage, and workflow documentation
 - **Auto-Unrating Feature**: Optional `UNRATE_EMPTY_ALBUMS` setting to automatically remove ratings from albums when they fall below coverage threshold (e.g., after tracks are manually unrated)
 - **Module Documentation**: Comprehensive module docstring with environment variable descriptions and usage
+- **Docker Logging Integration**: Logging now outputs to STDOUT and is captured by Docker's logging system
+- **Update Options**: Support for updating to either the latest development version or specific release tags
 
 ### Features
 

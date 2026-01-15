@@ -21,6 +21,10 @@ Environment Variables:
     UNRATE_EMPTY_ALBUMS (str): Remove ratings from albums that no longer meet
         coverage requirements (e.g., after tracks are manually unrated).
         Defaults to "false".
+    ROUNDING_BIAS_BAD_ALBUM (str): Rounding bias for albums below neutral rating.
+        Defaults to "0.65" (harsher rounding).
+    ROUNDING_BIAS_GOOD_ALBUM (str): Rounding bias for albums at or above neutral rating.
+        Defaults to "0.45" (gentler rounding).
 """
 
 import os
@@ -224,14 +228,14 @@ def log_album_update(
     else:
         old_rating_str = "None"
     status_msg = (
-        f"{album.parentTitle} – {album.title}\n"
+        f"{album.parentTitle} - {album.title}\n"
         f"  Rated tracks : {rated_count}/{total_tracks}\n"
         f"  New rating   : {display_new_rating} stars\n"
         f"  Old rating   : {old_rating_str}\n"
     )
     logger.info("%s", status_msg)
     logger.info(
-        "Album update needed: %s – %s (rating: %s → %s)",
+        "Album update needed: %s - %s (rating: %s → %s)",
         album.parentTitle,
         album.title,
         display_current_rating or "None",
@@ -402,10 +406,6 @@ def main() -> None:
     # Log final summary
     log_summary(albums_processed, albums_updated, albums_skipped)
 
-
-# =========================
-# Entrypoint
-# =========================
 
 if __name__ == "__main__":
     main()

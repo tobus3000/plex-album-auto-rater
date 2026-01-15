@@ -33,7 +33,7 @@ from plexapi.server import PlexServer
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()]
+    handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
@@ -45,12 +45,17 @@ DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 UNRATE_EMPTY_ALBUMS = os.getenv("UNRATE_EMPTY_ALBUMS", "false").lower() == "true"
 
 # Rating algorithm tuning
-NEUTRAL_RATING = float(os.getenv("NEUTRAL_RATING", "2.5"))  # 2.5 = midpoint of 1-5 star scale
+NEUTRAL_RATING = float(
+    os.getenv("NEUTRAL_RATING", "2.5")
+)  # 2.5 = midpoint of 1-5 star scale
 CONFIDENCE_WEIGHT = int(os.getenv("CONFIDENCE_WEIGHT", "4"))
 MIN_COVERAGE = float(os.getenv("MIN_COVERAGE", "0.2"))  # 20% rated tracks minimum
-MIN_TRACK_DURATION = int(os.getenv("MIN_TRACK_DURATION", "60"))  # seconds (exclude intros/skits)
+MIN_TRACK_DURATION = int(
+    os.getenv("MIN_TRACK_DURATION", "60")
+)  # seconds (exclude intros/skits)
 ROUNDING_BIAS_BAD_ALBUM = float(os.getenv("ROUNDING_BIAS_BAD_ALBUM", "0.65"))
 ROUNDING_BIAS_GOOD_ALBUM = float(os.getenv("ROUNDING_BIAS_GOOD_ALBUM", "0.45"))
+
 
 def asymmetric_rounding(final_rating: float) -> int:
     """
@@ -67,21 +72,20 @@ def asymmetric_rounding(final_rating: float) -> int:
     # At or above neutral → gentler rounding
     return int(plex_float + ROUNDING_BIAS_GOOD_ALBUM)
 
+
 def calculate_album_rating(
-    rated_track_ratings: List[float],
-    rated_track_count: int,
-    total_tracks: int
+    rated_track_ratings: List[float], rated_track_count: int, total_tracks: int
 ) -> Optional[int]:
     """Calculate album rating using Bayesian shrinkage with coverage weighting.
-    
+
     Combines individual track ratings with a Bayesian approach to generate a
     reliable album rating. Albums with insufficient track coverage are excluded.
-    
+
     Args:
         rated_track_ratings: List of user ratings for individual tracks (1-5 star scale).
         rated_track_count: Number of rated tracks in the album.
         total_tracks: Total number of tracks in the album.
-    
+
     Returns:
         Album rating for Plex's internal 1-10 scale or None if coverage threshold not met or no rated tracks.
     """
@@ -101,29 +105,26 @@ def calculate_album_rating(
         return 1
 
     bayesian_rating = (
-        (rated_track_count * avg_rating) +
-        (CONFIDENCE_WEIGHT * NEUTRAL_RATING)
+        (rated_track_count * avg_rating) + (CONFIDENCE_WEIGHT * NEUTRAL_RATING)
     ) / (rated_track_count + CONFIDENCE_WEIGHT)
 
-    final_rating = (
-        bayesian_rating * coverage +
-        NEUTRAL_RATING * (1 - coverage)
-    )
+    final_rating = bayesian_rating * coverage + NEUTRAL_RATING * (1 - coverage)
 
     # Convert from 1-5 star scale to Plex's 1-10 internal scale (multiply by 2)
     # Cap at 10 to ensure valid Plex rating (0-10)
     plex_rating = min(asymmetric_rounding(final_rating), 10)
     return plex_rating
 
+
 def process_album_tracks(album) -> List[float]:
     """Extract user ratings from rated tracks in an album.
-    
+
     Filters out short tracks (intros/skits) and collects ratings from tracks
     that have been explicitly rated by the user.
-    
+
     Args:
         album: Plex album object to process.
-    
+
     Returns:
         List of user ratings from rated tracks.
     """
@@ -132,7 +133,10 @@ def process_album_tracks(album) -> List[float]:
     for track in album.tracks():
         try:
             # Exclude intros/skits based on duration
-            if track.duration is not None and (track.duration / 1000) < MIN_TRACK_DURATION:
+            if (
+                track.duration is not None
+                and (track.duration / 1000) < MIN_TRACK_DURATION
+            ):
                 continue
 
             if track.userRating is not None:
@@ -146,7 +150,7 @@ def process_album_tracks(album) -> List[float]:
 
 def process_single_album(album) -> tuple[bool, Optional[int]]:
     """Process a single album and determine if it needs a rating update.
-    
+
     Collects track ratings, calculates a new album rating, and checks if it
     differs from the current rating. If UNRATE_EMPTY_ALBUMS is enabled, albums
     with no valid rating and an existing rating will be flagged for unrating.
@@ -171,9 +175,7 @@ def process_single_album(album) -> tuple[bool, Optional[int]]:
 
     try:
         new_rating = calculate_album_rating(
-            rated_track_ratings,
-            rated_count,
-            total_tracks
+            rated_track_ratings, rated_count, total_tracks
         )
     except (ValueError, TypeError) as e:
         logger.error("Failed to calculate rating for album %s: %s", album.title, e)
@@ -190,16 +192,23 @@ def process_single_album(album) -> tuple[bool, Optional[int]]:
         return False, None
 
     if current_rating == new_rating:
-        logger.debug("Album %s already has rating %s, skipping", album.title, new_rating)
+        logger.debug(
+            "Album %s already has rating %s, skipping", album.title, new_rating
+        )
         return False, None
 
     return True, new_rating
 
 
-def log_album_update(album, rated_count: int, total_tracks: int,
-                     current_rating: Optional[int], new_rating: Optional[int]) -> None:
+def log_album_update(
+    album,
+    rated_count: int,
+    total_tracks: int,
+    current_rating: Optional[int],
+    new_rating: Optional[int],
+) -> None:
     """Log information about an album that needs rating update.
-    
+
     Args:
         album: Plex album object.
         rated_count: Number of rated tracks in the album.
@@ -210,25 +219,33 @@ def log_album_update(album, rated_count: int, total_tracks: int,
     # Convert from Plex internal scale (1-10) to user-friendly display (1-5)
     display_new_rating = new_rating / 2 if new_rating is not None else None
     display_current_rating = current_rating / 2 if current_rating is not None else None
-
+    if display_current_rating is not None:
+        old_rating_str = f"{display_current_rating} stars"
+    else:
+        old_rating_str = "None"
     status_msg = (
         f"{album.parentTitle} – {album.title}\n"
         f"  Rated tracks : {rated_count}/{total_tracks}\n"
         f"  New rating   : {display_new_rating} stars\n"
-        f"  Old rating   : {display_current_rating or 'None'}\n"
+        f"  Old rating   : {old_rating_str}\n"
     )
     logger.info("%s", status_msg)
-    logger.info("Album update needed: %s – %s (rating: %s → %s)",
-               album.parentTitle, album.title, display_current_rating or 'None', display_new_rating)
+    logger.info(
+        "Album update needed: %s – %s (rating: %s → %s)",
+        album.parentTitle,
+        album.title,
+        display_current_rating or "None",
+        display_new_rating,
+    )
 
 
 def apply_album_rating(album, new_rating: Optional[int]) -> bool:
     """Apply a new rating to an album in Plex.
-    
+
     Args:
         album: Plex album object.
         new_rating: Rating to apply (1-10 scale) or None if no rating.
-    
+
     Returns:
         True if rating was successfully applied, False otherwise.
     """
@@ -240,7 +257,7 @@ def apply_album_rating(album, new_rating: Optional[int]) -> bool:
         logger.info(
             "Successfully rated album %s as %s in Plex (1-10 scale)",
             album.title,
-            new_rating
+            new_rating,
         )
         return True
     except (OSError, ValueError) as e:
@@ -295,9 +312,11 @@ def log_configuration() -> None:
     logger.info("Unrate empty albums  : %s", UNRATE_EMPTY_ALBUMS)
 
 
-def log_summary(albums_processed: int, albums_updated: int, albums_skipped: int) -> None:
+def log_summary(
+    albums_processed: int, albums_updated: int, albums_skipped: int
+) -> None:
     """Log final statistics of the run.
-    
+
     Args:
         albums_processed: Number of albums with updates needed.
         albums_updated: Number of albums that were successfully updated.
@@ -312,7 +331,7 @@ def log_summary(albums_processed: int, albums_updated: int, albums_skipped: int)
 
 def main() -> None:
     """Main entry point for Plex Album Auto-Rater.
-    
+
     Orchestrates the album rating process: connects to Plex, logs configuration,
     processes all albums, and logs final statistics.
     """
@@ -382,6 +401,7 @@ def main() -> None:
 
     # Log final summary
     log_summary(albums_processed, albums_updated, albums_skipped)
+
 
 # =========================
 # Entrypoint

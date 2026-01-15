@@ -72,6 +72,8 @@ NEUTRAL_RATING=3.0
 CONFIDENCE_WEIGHT=4
 MIN_COVERAGE=0.2
 MIN_TRACK_DURATION=60
+ROUNDING_BIAS_BAD_ALBUM=0.65
+ROUNDING_BIAS_GOOD_ALBUM=0.45
 
 # Features
 UNRATE_EMPTY_ALBUMS=false
@@ -208,6 +210,8 @@ Logs can be captured and redirected as needed (e.g., to a file via cron or Docke
 | `MIN_COVERAGE` | `0.2` | Minimum fraction of rated tracks required to rate album (0.0-1.0). |
 | `MIN_TRACK_DURATION` | `60` | Minimum track duration in seconds (excludes short tracks). |
 | `UNRATE_EMPTY_ALBUMS` | `false` | Automatically remove ratings from albums that no longer meet coverage threshold. |
+| `ROUNDING_BIAS_BAD_ALBUM` | `0.65` | Harsher rounding for albums below neutral rating. |
+| `ROUNDING_BIAS_GOOD_ALBUM` | `0.45` | Gentler rounding for albums at or above neutral rating. |
 
 ### UNRATE_EMPTY_ALBUMS Feature
 
@@ -224,32 +228,39 @@ When enabled (`true`), this feature automatically removes ratings from albums th
 
 ## Rating Algorithm
 
-The rating algorithm is based on a Bayesian Shrinkage Rating system.
+The rating algorithm is based on a Bayesian Shrinkage Rating system with deterministic overrides and asymmetric rounding.
 
-> Start with a neutral prior and let real ratings pull the album toward its true value as confidence increases.
+> Start with a neutral prior and let real ratings pull the album toward its true value as confidence increases — while enforcing hard rules for consistently loved or disliked albums.
 
 ### Understanding the Rating Scale
 
-The algorithm calculates ratings on a **1–5 star scale** (matching Plex's user-facing display).  
-However, Plex stores ratings internally using a **1–10 scale** (called "tenths"). The conversion is automatic:
+The algorithm calculates ratings on a 1–5 star scale (matching Plex’s user-facing display).  
+However, Plex stores ratings internally using a 1–10 scale (called “tenths”).  
+The conversion is automatic:
 
-- Algorithm calculates: **3.0 stars**
-- Plex stores internally: **6 (tenths)**
-- Plex UI displays: **3 stars** ✓
+- Algorithm calculates: 3.0 stars
+- Plex stores internally: 6 (tenths)
+- Plex UI displays: 3 stars ✓
 
-The formula multiplies the final result by 2 to account for this conversion: `plex_rating = ceil(final_rating × 2)`
+The final conversion multiplies the calculated rating by 2 and applies asymmetric rounding to avoid systematic inflation:
 
-This ensures what you see in the UI matches what the algorithm calculated.
+- Lower-rated albums are rounded more conservatively, requiring stronger evidence to move up a star
+- Higher-rated albums are rounded neutrally or slightly generously to preserve strong positive signals
+
+This replaces unconditional upward rounding and produces a more realistic distribution of album ratings.
 
 ### Features of this algorithm
 
-- Assume unrated tracks are neutral (not bad, not amazing)
-- Never rate an album if zero tracks are rated
-- Avoid inflation from a single 5⭐ track
-- Reward albums with consistently high ratings
-- Penalize albums with many unrated tracks
-- Converge naturally as more tracks are rated
-- Stay in Plex’s 1–5 star model
+- Uses a Bayesian prior to stabilize ratings with limited data
+- Assumes unrated tracks are neutral (not bad, not amazing)
+- Never rates an album if zero tracks are rated
+- Avoids inflation from a single high-rated track
+- Rewards albums with consistently high ratings
+- Penalizes albums with low coverage or weak signals
+- Hard-enforces 1⭐ albums when all rated tracks are 1⭐
+- Applies asymmetric rounding to be harsher on weak albums
+- Converges naturally as more tracks are rated
+- Stays fully within Plex’s 1–5 star model
 
 ### 🧮 Formula
 
@@ -261,41 +272,50 @@ Let:
 - C = neutral rating (recommend 3.0)
 - k = confidence constant (recommend 3–5)
 
-#### Bayesian album rating
-
 ```python
 album_rating =
   ((n * R̄) + (k * C)) / (n + k)
 ```
 
-#### Hard floor rule
+#### Hard 1-Star Override
 
-Before applying coverage penalty, check if the album is consistently bad:
+Before applying coverage or Bayesian adjustments, the algorithm now checks if the album is consistently disliked:
 
 ```python
-if coverage >= 0.7 and avg_rating <= 1.3:
+# If all rated tracks are 1 star, force album rating to 1
+if all(rating == 1 for rating in rated_track_ratings):
     return 1
 ```
 
-This ensures albums with **70%+ coverage** and **average rating ≤ 1.3** get an immediate 1-star rating. This is useful because:
+This ensures albums where all rated tracks are 1★ are immediately rated 1★, bypassing Bayesian smoothing and neutral priors. This is useful because:
 
-- Bayesian shrinkage normally pulls bad albums toward the neutral rating
-- A hard floor prevents underrated bad albums from being smoothed out
+- Bayesian shrinkage normally pulls very low ratings toward the neutral rating (e.g., 2.5★)
+- The override prevents genuinely bad albums from being artificially inflated
+- Helps keep the library clean and avoids overrating poorly received albums
 
-**Example:** An album with 8/10 tracks rated at 1 star each would normally smooth toward 3.0 (neutral). The hard floor prevents this and keeps it at 1 star for easy cleanup.
+**Example:** An album with 5/5 rated tracks all at 1★ would normally smooth toward ~2.5★. With this override, it is immediately rated 1★.
 
-Then apply coverage penalty:
+#### Bayesian + Coverage Adjustment
 
-```python
-coverage = n / N
-final_rating = album_rating * coverage + C * (1 - coverage)
-```
-
-Final rating is rounded up to nearest whole star for Plex:
+After this, coverage weighting and Bayesian averaging are applied for albums that are not all 1★:
 
 ```python
-plex_rating = ceil(final_rating)
+coverage = rated_count / total_tracks
+bayesian_rating = (rated_count * avg_rating + CONFIDENCE_WEIGHT * NEUTRAL_RATING) / (rated_count + CONFIDENCE_WEIGHT)
+final_rating = bayesian_rating * coverage + NEUTRAL_RATING * (1 - coverage)
 ```
+
+#### Asymmetric Rounding
+
+Finally, the rating is converted to Plex’s 1–10 scale using asymmetric rounding:
+
+```python
+plex_rating = min(asymmetric_rounding(final_rating), 10)
+```
+
+- Lower-rated albums are rounded more conservatively
+- Higher-rated albums are rounded neutrally or slightly generously
+- This avoids systematic inflation while keeping ratings intuitive in the Plex UI
 
 ## Contributing
 

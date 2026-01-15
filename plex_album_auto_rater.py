@@ -24,7 +24,6 @@ Environment Variables:
 """
 
 import os
-import math
 import logging
 from typing import List, Optional
 from plexapi.server import PlexServer
@@ -50,6 +49,23 @@ NEUTRAL_RATING = float(os.getenv("NEUTRAL_RATING", "2.5"))  # 2.5 = midpoint of 
 CONFIDENCE_WEIGHT = int(os.getenv("CONFIDENCE_WEIGHT", "4"))
 MIN_COVERAGE = float(os.getenv("MIN_COVERAGE", "0.2"))  # 20% rated tracks minimum
 MIN_TRACK_DURATION = int(os.getenv("MIN_TRACK_DURATION", "60"))  # seconds (exclude intros/skits)
+ROUNDING_BIAS_BAD_ALBUM = float(os.getenv("ROUNDING_BIAS_BAD_ALBUM", "0.65"))
+ROUNDING_BIAS_GOOD_ALBUM = float(os.getenv("ROUNDING_BIAS_GOOD_ALBUM", "0.45"))
+
+def asymmetric_rounding(final_rating: float) -> int:
+    """
+    Apply asymmetric rounding:
+    - Harsher rounding for bad albums
+    - Neutral/slightly generous rounding for good albums
+    """
+    plex_float = final_rating * 2
+
+    # Below neutral → harsher rounding
+    if final_rating < NEUTRAL_RATING:
+        return int(plex_float + ROUNDING_BIAS_BAD_ALBUM)
+
+    # At or above neutral → gentler rounding
+    return int(plex_float + ROUNDING_BIAS_GOOD_ALBUM)
 
 def calculate_album_rating(
     rated_track_ratings: List[float],
@@ -79,8 +95,9 @@ def calculate_album_rating(
 
     avg_rating = sum(rated_track_ratings) / rated_track_count
 
-    # Hard floor: bad albums with high coverage get a 1-star rating
-    if coverage >= 0.7 and avg_rating <= 1.3:
+    # HARD OVERRIDE:
+    # If all rated tracks are 1 star, force album to 1 star
+    if all(rating == 1 for rating in rated_track_ratings):
         return 1
 
     bayesian_rating = (
@@ -95,7 +112,7 @@ def calculate_album_rating(
 
     # Convert from 1-5 star scale to Plex's 1-10 internal scale (multiply by 2)
     # Cap at 10 to ensure valid Plex rating (0-10)
-    plex_rating = min(math.ceil(final_rating * 2), 10)
+    plex_rating = min(asymmetric_rounding(final_rating), 10)
     return plex_rating
 
 def process_album_tracks(album) -> List[float]:
@@ -193,7 +210,7 @@ def log_album_update(album, rated_count: int, total_tracks: int,
     # Convert from Plex internal scale (1-10) to user-friendly display (1-5)
     display_new_rating = new_rating / 2 if new_rating is not None else None
     display_current_rating = current_rating / 2 if current_rating is not None else None
-    
+
     status_msg = (
         f"{album.parentTitle} – {album.title}\n"
         f"  Rated tracks : {rated_count}/{total_tracks}\n"

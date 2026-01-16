@@ -98,17 +98,18 @@ def calculate_album_rating(
     if rated_track_count == 0:
         return None
 
-    coverage = rated_track_count / total_tracks
-    if coverage < MIN_COVERAGE:
-        return None
-
-    # HARD OVERRIDE: all tracks rated 1★ → force 1★
+    # HARD OVERRIDE: all rated tracks are 1★ → force 1★
     if rated_track_ratings and all(r == 1 for r in rated_track_ratings):
         return 2  # Plex internal scale = 1★
 
-    # HARD OVERRIDE: all tracks rated 5★ → force 5★
+    # HARD OVERRIDE: all rated tracks are 5★ → force 5★
     if rated_track_ratings and all(r == 5 for r in rated_track_ratings):
         return 10  # Plex internal scale = 5★
+
+    # Coverage check applies only to non-extreme albums
+    coverage = rated_track_count / total_tracks
+    if coverage < MIN_COVERAGE:
+        return None
 
     avg_rating = sum(rated_track_ratings) / rated_track_count
 

@@ -160,12 +160,6 @@ def process_single_album(album) -> tuple[bool, Optional[int]]:
 
     Applies hard overrides for all 1★ or all 5★ albums, while using
     Bayesian shrinkage and coverage weighting for all other albums.
-
-    Args:
-        album: Plex album object to process.
-
-    Returns:
-        Tuple of (needs_update, new_rating)
     """
     try:
         tracks = album.tracks()
@@ -177,39 +171,44 @@ def process_single_album(album) -> tuple[bool, Optional[int]]:
     rated_track_ratings = process_album_tracks(album)
     rated_count = len(rated_track_ratings)
 
-    # --- Hard overrides applied first ---
-    if rated_track_ratings:
-        if all(r == 1 for r in rated_track_ratings):
-            return True, 2  # Plex 1★
-        if all(r == 5 for r in rated_track_ratings):
-            return True, 10  # Plex 5★
+    current_rating = getattr(album, "userRating", None)
 
     # --- Skip album if no rated tracks ---
     if rated_count == 0:
-        if UNRATE_EMPTY_ALBUMS and getattr(album, "userRating", None) is not None:
+        if UNRATE_EMPTY_ALBUMS and current_rating is not None:
             return True, None
         return False, None
 
     coverage = rated_count / total_tracks
     if coverage < MIN_COVERAGE:
-        # Low coverage, skip rating
-        if UNRATE_EMPTY_ALBUMS and getattr(album, "userRating", None) is not None:
+        if UNRATE_EMPTY_ALBUMS and current_rating is not None:
             return True, None
         return False, None
 
-    # Compute Bayesian album rating
+    # ------------------------------------------------------------
+    # HARD OVERRIDES for all 1★ or all 5★ albums
+    # ------------------------------------------------------------
+    PLEX_1_STAR = 2
+    PLEX_5_STAR = 10
+
+    if all(r == PLEX_1_STAR for r in rated_track_ratings):
+        if current_rating != PLEX_1_STAR:
+            return True, PLEX_1_STAR
+        return False, None
+
+    if all(r == PLEX_5_STAR for r in rated_track_ratings):
+        if current_rating != PLEX_5_STAR:
+            return True, PLEX_5_STAR
+        return False, None
+
+    # --- Bayesian album rating ---
     new_rating = calculate_album_rating(
         rated_track_ratings=rated_track_ratings,
         rated_track_count=rated_count,
         total_tracks=total_tracks,
     )
 
-    current_rating = getattr(album, "userRating", None)
-
-    if new_rating is None:
-        return False, None
-
-    if current_rating == new_rating:
+    if new_rating is None or new_rating == current_rating:
         return False, None
 
     return True, new_rating

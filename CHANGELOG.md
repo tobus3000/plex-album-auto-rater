@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Albums where all rated tracks are 1★ are now always rated 1★ in Plex (internal scale = 2).  
   - Ensures consistently disliked albums are never artificially inflated by Bayesian shrinkage or coverage weighting.
 
+- **Maximum 5★ Rating Enforcement**:  
+  - Albums where all rated tracks are 5★ are now always rated 5★ in Plex (internal scale = 10).  
+  - Guarantees that superb albums receive the highest possible rating.
+
 ### Changed
 
 - **`calculate_album_rating` & `asymmetric_rounding` Rewrite**:  
@@ -25,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **1★ Album Ratings Previously Inflated**:  
   - Corrected behavior where albums with all 1★ tracks were being rounded up to 2★ or higher.  
   - Now honors hard 1★ override consistently across Plex library updates.
-  
+
 ---
 
 ## [1.0.0] - 2026-01-15

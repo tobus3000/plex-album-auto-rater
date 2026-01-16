@@ -102,11 +102,15 @@ def calculate_album_rating(
     if coverage < MIN_COVERAGE:
         return None
 
-    avg_rating = sum(rated_track_ratings) / rated_track_count
-
-    # HARD OVERRIDE: all rated tracks are 1 star → force 1 star (Plex scale = 2)
+    # HARD OVERRIDE: all tracks rated 1★ → force 1★
     if all(rating == 1 for rating in rated_track_ratings):
-        return 2
+        return 2  # Plex internal scale = 1★
+
+    # HARD OVERRIDE: all tracks rated 5★ → force 5★
+    if all(rating == 5 for rating in rated_track_ratings):
+        return 10  # Plex internal scale = 5★
+
+    avg_rating = sum(rated_track_ratings) / rated_track_count
 
     # Bayesian shrinkage
     bayesian_rating = (

@@ -81,44 +81,26 @@ def asymmetric_rounding(final_rating: float) -> int:
 
 
 def calculate_album_rating(
-    rated_track_ratings: List[float],
-    rated_track_count: int,
-    total_tracks: int,
-    override_track_ratings: List[float] = None,
+    rated_track_ratings: List[float], rated_track_count: int, total_tracks: int
 ) -> Optional[int]:
     """Calculate album rating using Bayesian shrinkage with coverage weighting.
 
     Combines individual track ratings with a Bayesian approach to generate a
-    reliable album rating. Albums with insufficient track coverage are excluded,
-    unless all tracks are rated 1★ or 5★ (hard overrides).
+    reliable album rating. Albums with insufficient track coverage are excluded
+    (handled before calling this function).
 
     Args:
-        rated_track_ratings: List of track ratings to use for Bayesian calculation.
-        rated_track_count: Number of tracks used for Bayesian calculation.
+        rated_track_ratings: List of user ratings for individual tracks (1-5 star scale).
+        rated_track_count: Number of rated tracks in the album.
         total_tracks: Total number of tracks in the album.
-        override_track_ratings: List of all rated tracks, used for hard override checks.
 
     Returns:
-        Album rating for Plex's internal 1-10 scale or None if coverage threshold not met
-        (except for hard override albums).
+        Album rating for Plex's internal 1-10 scale.
     """
     if rated_track_count == 0:
         return None
 
-    override_track_ratings = override_track_ratings or rated_track_ratings
-
-    # HARD OVERRIDE: all rated tracks are 1★ → force 1★
-    if override_track_ratings and all(r == 1 for r in override_track_ratings):
-        return 2  # Plex internal scale = 1★
-
-    # HARD OVERRIDE: all rated tracks are 5★ → force 5★
-    if override_track_ratings and all(r == 5 for r in override_track_ratings):
-        return 10  # Plex internal scale = 5★
-
-    # Coverage check applies only to non-extreme albums
     coverage = rated_track_count / total_tracks
-    if coverage < MIN_COVERAGE:
-        return None
 
     avg_rating = sum(rated_track_ratings) / rated_track_count
 
@@ -176,17 +158,14 @@ def process_album_tracks(album, include_all_for_override: bool = False) -> List[
 def process_single_album(album) -> tuple[bool, Optional[int]]:
     """Process a single album and determine if it needs a rating update.
 
-    Collects track ratings, calculates a new album rating, and checks if it
-    differs from the current rating. Supports hard overrides for all 1★ or all 5★
-    albums while applying Bayesian shrinkage to all other albums.
+    Applies hard overrides for all 1★ or all 5★ albums, while using
+    Bayesian shrinkage and coverage weighting for all other albums.
 
     Args:
         album: Plex album object to process.
 
     Returns:
-        Tuple of (needs_update, new_rating) where needs_update is True if
-        the album should be rated/unrated and new_rating is the calculated rating
-        or None if album should be unrated.
+        Tuple of (needs_update, new_rating)
     """
     try:
         tracks = album.tracks()
@@ -195,40 +174,42 @@ def process_single_album(album) -> tuple[bool, Optional[int]]:
         return False, None
 
     total_tracks = len(tracks)
+    rated_track_ratings = process_album_tracks(album)
+    rated_count = len(rated_track_ratings)
 
-    # Get all rated tracks (ignoring duration) for hard override checks
-    override_ratings = process_album_tracks(album, include_all_for_override=True)
+    # --- Hard overrides applied first ---
+    if rated_track_ratings:
+        if all(r == 1 for r in rated_track_ratings):
+            return True, 2  # Plex 1★
+        if all(r == 5 for r in rated_track_ratings):
+            return True, 10  # Plex 5★
 
-    # Get rated tracks for Bayesian calculation (filtered by duration)
-    bayesian_ratings = process_album_tracks(album, include_all_for_override=False)
-    rated_count = len(bayesian_ratings)
-
-    # Calculate new rating
-    try:
-        new_rating = calculate_album_rating(
-            rated_track_ratings=bayesian_ratings,
-            rated_track_count=rated_count,
-            total_tracks=total_tracks,
-            override_track_ratings=override_ratings,
-        )
-    except (ValueError, TypeError) as e:
-        logger.error("Failed to calculate rating for album %s: %s", album.title, e)
-        return False, None
-
-    current_rating = album.userRating
-
-    # Handle unrating logic
-    if new_rating is None:
-        if UNRATE_EMPTY_ALBUMS and current_rating is not None:
-            # Mark for unrating
+    # --- Skip album if no rated tracks ---
+    if rated_count == 0:
+        if UNRATE_EMPTY_ALBUMS and getattr(album, "userRating", None) is not None:
             return True, None
         return False, None
 
-    # Skip if rating hasn't changed
+    coverage = rated_count / total_tracks
+    if coverage < MIN_COVERAGE:
+        # Low coverage, skip rating
+        if UNRATE_EMPTY_ALBUMS and getattr(album, "userRating", None) is not None:
+            return True, None
+        return False, None
+
+    # Compute Bayesian album rating
+    new_rating = calculate_album_rating(
+        rated_track_ratings=rated_track_ratings,
+        rated_track_count=rated_count,
+        total_tracks=total_tracks,
+    )
+
+    current_rating = getattr(album, "userRating", None)
+
+    if new_rating is None:
+        return False, None
+
     if current_rating == new_rating:
-        logger.debug(
-            "Album %s already has rating %s, skipping", album.title, new_rating
-        )
         return False, None
 
     return True, new_rating

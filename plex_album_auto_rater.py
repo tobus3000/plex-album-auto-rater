@@ -63,19 +63,21 @@ ROUNDING_BIAS_GOOD_ALBUM = float(os.getenv("ROUNDING_BIAS_GOOD_ALBUM", "0.45"))
 
 def asymmetric_rounding(final_rating: float) -> int:
     """
-    Apply asymmetric rounding:
-    - Harsher rounding for bad albums
-    - Neutral/slightly generous rounding for good albums
+    Convert 1-5 star final_rating to Plex 1-10 internal scale with asymmetric rounding:
+    - Harsher rounding for albums below NEUTRAL_RATING
+    - Gentler rounding for albums at or above NEUTRAL_RATING
+    - Minimum rating is 1 star (Plex scale = 2)
     """
     plex_float = final_rating * 2
 
-    # Below neutral → harsher rounding
+    # Ensure minimum 1 star in Plex scale
+    if plex_float < 2:
+        return 2
+
     if final_rating < NEUTRAL_RATING:
         return int(plex_float + ROUNDING_BIAS_BAD_ALBUM)
 
-    # At or above neutral → gentler rounding
     return int(plex_float + ROUNDING_BIAS_GOOD_ALBUM)
-
 
 def calculate_album_rating(
     rated_track_ratings: List[float], rated_track_count: int, total_tracks: int
@@ -93,7 +95,6 @@ def calculate_album_rating(
     Returns:
         Album rating for Plex's internal 1-10 scale or None if coverage threshold not met or no rated tracks.
     """
-
     if rated_track_count == 0:
         return None
 
@@ -103,22 +104,21 @@ def calculate_album_rating(
 
     avg_rating = sum(rated_track_ratings) / rated_track_count
 
-    # HARD OVERRIDE:
-    # If all rated tracks are 1 star, force album to 1 star
+    # HARD OVERRIDE: all rated tracks are 1 star → force 1 star (Plex scale = 2)
     if all(rating == 1 for rating in rated_track_ratings):
-        return 1
+        return 2
 
+    # Bayesian shrinkage
     bayesian_rating = (
         (rated_track_count * avg_rating) + (CONFIDENCE_WEIGHT * NEUTRAL_RATING)
     ) / (rated_track_count + CONFIDENCE_WEIGHT)
 
+    # Weight by coverage
     final_rating = bayesian_rating * coverage + NEUTRAL_RATING * (1 - coverage)
 
-    # Convert from 1-5 star scale to Plex's 1-10 internal scale (multiply by 2)
-    # Cap at 10 to ensure valid Plex rating (0-10)
+    # Convert to Plex internal scale with asymmetric rounding
     plex_rating = min(asymmetric_rounding(final_rating), 10)
     return plex_rating
-
 
 def process_album_tracks(album) -> List[float]:
     """Extract user ratings from rated tracks in an album.

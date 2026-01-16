@@ -80,30 +80,38 @@ def asymmetric_rounding(final_rating: float) -> int:
     return int(plex_float + ROUNDING_BIAS_GOOD_ALBUM)
 
 def calculate_album_rating(
-    rated_track_ratings: List[float], rated_track_count: int, total_tracks: int
+    rated_track_ratings: List[float],
+    rated_track_count: int,
+    total_tracks: int,
+    override_track_ratings: List[float] = None
 ) -> Optional[int]:
     """Calculate album rating using Bayesian shrinkage with coverage weighting.
 
     Combines individual track ratings with a Bayesian approach to generate a
-    reliable album rating. Albums with insufficient track coverage are excluded.
+    reliable album rating. Albums with insufficient track coverage are excluded,
+    unless all tracks are rated 1★ or 5★ (hard overrides).
 
     Args:
-        rated_track_ratings: List of user ratings for individual tracks (1-5 star scale).
-        rated_track_count: Number of rated tracks in the album.
+        rated_track_ratings: List of track ratings to use for Bayesian calculation.
+        rated_track_count: Number of tracks used for Bayesian calculation.
         total_tracks: Total number of tracks in the album.
+        override_track_ratings: List of all rated tracks, used for hard override checks.
 
     Returns:
-        Album rating for Plex's internal 1-10 scale or None if coverage threshold not met or no rated tracks.
+        Album rating for Plex's internal 1-10 scale or None if coverage threshold not met
+        (except for hard override albums).
     """
     if rated_track_count == 0:
         return None
 
+    override_track_ratings = override_track_ratings or rated_track_ratings
+
     # HARD OVERRIDE: all rated tracks are 1★ → force 1★
-    if rated_track_ratings and all(r == 1 for r in rated_track_ratings):
+    if override_track_ratings and all(r == 1 for r in override_track_ratings):
         return 2  # Plex internal scale = 1★
 
     # HARD OVERRIDE: all rated tracks are 5★ → force 5★
-    if rated_track_ratings and all(r == 5 for r in rated_track_ratings):
+    if override_track_ratings and all(r == 5 for r in override_track_ratings):
         return 10  # Plex internal scale = 5★
 
     # Coverage check applies only to non-extreme albums
@@ -125,14 +133,16 @@ def calculate_album_rating(
     plex_rating = min(asymmetric_rounding(final_rating), 10)
     return plex_rating
 
-def process_album_tracks(album) -> List[float]:
+
+def process_album_tracks(album, include_all_for_override: bool = False) -> List[float]:
     """Extract user ratings from rated tracks in an album.
 
-    Filters out short tracks (intros/skits) and collects ratings from tracks
-    that have been explicitly rated by the user.
+    Filters out short tracks (intros/skits) unless `include_all_for_override` is True,
+    which is used for hard override checks.
 
     Args:
         album: Plex album object to process.
+        include_all_for_override: If True, include all rated tracks regardless of duration.
 
     Returns:
         List of user ratings from rated tracks.
@@ -141,17 +151,17 @@ def process_album_tracks(album) -> List[float]:
 
     for track in album.tracks():
         try:
-            # Exclude intros/skits based on duration
-            if (
-                track.duration is not None
-                and (track.duration / 1000) < MIN_TRACK_DURATION
-            ):
+            if track.userRating is None:
                 continue
 
-            if track.userRating is not None:
-                rated_track_ratings.append(track.userRating)
+            if not include_all_for_override:
+                # Exclude short tracks (intros/skits)
+                if track.duration is not None and (track.duration / 1000) < MIN_TRACK_DURATION:
+                    continue
+
+            rated_track_ratings.append(track.userRating)
         except (AttributeError, TypeError) as e:
-            logger.debug("Error processing track %s: %s", track.title, e)
+            logger.debug("Error processing track %s: %s", getattr(track, "title", None), e)
             continue
 
     return rated_track_ratings

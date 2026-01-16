@@ -17,7 +17,7 @@ Automatically rate Plex albums based on individual track ratings using a fair, c
 | Will it rate albums with zero rated tracks? | ❌ No (requires minimum coverage) |
 | Can I test in dry-run mode before making changes? | ✅ Yes |
 | Can it run automatically on a schedule? | ✅ Yes |
-| Does it require Docker? | ✅ Yes |
+| Does it require Docker? | ✅ Yes (recommended) |
 
 ## Features
 
@@ -50,11 +50,11 @@ cd plex-album-auto-rater
 ### **Option B**: Specific release version (stable)
 
 ```bash
-git clone --branch v1.0.0 https://github.com/tobus3000/plex-album-auto-rater.git
+git clone --branch v1.0.1 https://github.com/tobus3000/plex-album-auto-rater.git
 cd plex-album-auto-rater
 ```
 
-> Replace `v1.0.0` with your desired release tag. See [releases](https://github.com/tobus3000/plex-album-auto-rater/releases) for available versions.
+> Replace `v1.0.1` with your desired release tag. See [releases](https://github.com/tobus3000/plex-album-auto-rater/releases) for available versions.
 
 1. Create a `.env` file based on the provided template:
 
@@ -158,10 +158,10 @@ git pull origin main
 
 ```bash
 git fetch --tags
-git checkout v1.0.0
+git checkout v1.0.1
 ```
 
-> Replace `v1.0.0` with your desired release tag. See [releases](https://github.com/tobus3000/plex-album-auto-rater/releases) for available versions.
+> Replace `v1.0.1` with your desired release tag. See [releases](https://github.com/tobus3000/plex-album-auto-rater/releases) for available versions.
 
 1. Rebuild the Docker image:
 
@@ -179,10 +179,9 @@ Check [CHANGELOG.md](CHANGELOG.md) for version-specific changes.
 
 ## ⚠️ Important Plex Notes
 
-- Plex album ratings use 1–5 stars
-- `track.userRating` and `album.userRating` both follow this scale
-- Ratings are user-specific
-- This script should run under the same Plex user that rates tracks
+- Plex album ratings use 1–5 stars but are stored internally as 1–10 "tenths".
+- Ratings are user-specific.
+- This script should run under the same Plex user that rates tracks.
 
 ## Logging
 
@@ -277,27 +276,34 @@ album_rating =
   ((n * R̄) + (k * C)) / (n + k)
 ```
 
-#### Hard 1-Star Override
+#### Hard 1-Star/5-Star Override
 
-Before applying coverage or Bayesian adjustments, the algorithm now checks if the album is consistently disliked:
+Before applying coverage or Bayesian adjustments, the algorithm now checks if the album is consistently disliked or liked.
+
+Simplified example:
 
 ```python
 # If all rated tracks are 1 star, force album rating to 1
-if all(rating == 1 for rating in rated_track_ratings):
-    return 1
+if override_track_ratings and all(r == PLEX_1_STAR for r in override_track_ratings)
+    return PLEX_1_STAR
+# If all rated tracks are 5 star, force album rating to 5
+if override_track_ratings and all(r == PLEX_5_STAR for r in override_track_ratings):
+    return PLEX_5_STAR    
 ```
 
-This ensures albums where all rated tracks are 1★ are immediately rated 1★, bypassing Bayesian smoothing and neutral priors. This is useful because:
+This ensures albums where all rated tracks are 1★ are immediately rated 1★, bypassing Bayesian smoothing and neutral priors. Same symetric logic applies to albums with all 5★ tracks.
+
+This is useful because:
 
 - Bayesian shrinkage normally pulls very low ratings toward the neutral rating (e.g., 2.5★)
-- The override prevents genuinely bad albums from being artificially inflated
+- The override prevents genuinely good or bad albums from being artificially inflated/deflated.
 - Helps keep the library clean and avoids overrating poorly received albums
 
 **Example:** An album with 5/5 rated tracks all at 1★ would normally smooth toward ~2.5★. With this override, it is immediately rated 1★.
 
 #### Bayesian + Coverage Adjustment
 
-After this, coverage weighting and Bayesian averaging are applied for albums that are not all 1★:
+After this, coverage weighting and Bayesian averaging are applied for albums that are not all 1★ or all 5★:
 
 ```python
 coverage = rated_count / total_tracks

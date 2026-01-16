@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Nothing yet
+
+### Changed
+
+- Nothing yet
+
+## [1.0.1] - 2026-01-16
+
+### Added
+
 - **Minimum 1★ Rating Enforcement**:  
   - Albums where all rated tracks are 1★ are now always rated 1★ in Plex (internal scale = 2).  
   - Ensures consistently disliked albums are never artificially inflated by Bayesian shrinkage or coverage weighting.
@@ -86,4 +96,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 [Unreleased]: https://github.com/tobus3000/plex-album-auto-rater/compare/v1.0.0...HEAD
+[1.0.1]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.0

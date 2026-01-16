@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Refactored to correctly handle edge cases for very low-rated albums.  
   - Preserves Bayesian shrinkage and coverage weighting for all other albums.  
   - Ensures asymmetric rounding still applies to mid- and high-rated albums while enforcing a 1★ floor.
+  - Ignore track duration when rating falls into very low or very high (all tracks 1★ or all 5★) categories.
 
 ### Fixed
 

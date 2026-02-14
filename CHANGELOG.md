@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Nothing yet
 
+## [1.0.2] - 2026-02-14
+
+### Added
+
+- **Docker Swarm Mode Support**: New `docker-swarm-compose.yml` configuration for deploying as a cronjob service in Docker Swarm clusters.
+
+### Changed
+
+- **Documentation Reorganization**: Moved all Docker-specific installation, usage, and deployment instructions from README.md to dedicated DOCKER.md file for better organization and maintainability.
+
+---
+
 ## [1.0.1] - 2026-01-16
 
 ### Added
@@ -95,6 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/tobus3000/plex-album-auto-rater/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/tobus3000/plex-album-auto-rater/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/tobus3000/plex-album-auto-rater/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.1
 [1.0.0]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.0

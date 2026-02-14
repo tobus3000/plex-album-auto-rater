@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  plex-album-auto-rater:
+    image: tobotec/plex-album-auto-rater:latest
+    volumes:
+      - /mnt/Docker/shared-volumes/plex-album-auto-rater/.env:/app/.env:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=plex-album-auto-rater"
+    deploy:
+      mode: replicated
+      replicas: 0
+      placement:
+        constraints:
+          - node.role == worker
+      labels:
+        - "swarm.cronjob.enable=true"
+        - "swarm.cronjob.schedule=0 1 * * *"
+        - "swarm.cronjob.skip-running=false"
+      restart_policy:
+        condition: none

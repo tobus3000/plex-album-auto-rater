@@ -1,5 +1,7 @@
 # Plex Album Rating Engine
 
+![Latest Release](https://img.shields.io/github/v/release/tobus3000/plex-album-auto-rater)
+
 Automatically rate Plex albums based on individual track ratings using a fair, confidence-aware algorithm that accounts for unrated tracks and can exclude intros or skits.
 
 ## 🧠 Summary (TL;DR)
@@ -36,146 +38,14 @@ Automatically rate Plex albums based on individual track ratings using a fair, c
 - Linux host (cron recommended for scheduling)
 - Python 3.12+ (used inside container)
 
-## Installation
+## Installation & Usage
 
-1. Clone the repository:
+See [DOCKER.md](DOCKER.md) for complete setup and deployment instructions, including:
 
-### **Option A**: Latest development version (main branch)
-
-```bash
-git clone https://github.com/tobus3000/plex-album-auto-rater.git
-cd plex-album-auto-rater
-```
-
-### **Option B**: Specific release version (stable)
-
-```bash
-git clone --branch v1.0.1 https://github.com/tobus3000/plex-album-auto-rater.git
-cd plex-album-auto-rater
-```
-
-> Replace `v1.0.1` with your desired release tag. See [releases](https://github.com/tobus3000/plex-album-auto-rater/releases) for available versions.
-
-1. Create a `.env` file based on the provided template:
-
-```bash
-# Required
-PLEX_URL=http://plex:32400
-PLEX_TOKEN=YOUR_PLEX_TOKEN
-PLEX_MUSIC_LIBRARY=Music
-
-# Safety
-DRY_RUN=true
-
-# Algorithm tuning
-NEUTRAL_RATING=3.0
-CONFIDENCE_WEIGHT=4
-MIN_COVERAGE=0.2
-MIN_TRACK_DURATION=60
-ROUNDING_BIAS_BAD_ALBUM=0.65
-ROUNDING_BIAS_GOOD_ALBUM=0.45
-
-# Features
-UNRATE_EMPTY_ALBUMS=false
-```
-
-> Tip: Keep `DRY_RUN=true` for your first run to preview actions without modifying Plex ratings.
-
-1. Build the Docker container:
-
-```bash
-docker-compose build
-```
-
-## Usage
-
-### Manual run
-
-```bash
-docker-compose up plex-album-auto-rater
-```
-
-You should see log output listing albums that would be rated in Plex. The application logs all operations with timestamps and severity levels.
-
-Once verified, disable dry-run mode:
-
-```bash
-# Disable dry-run
-sed -i 's/DRY_RUN=true/DRY_RUN=false/' .env
-docker-compose up plex-album-auto-rater
-```
-
-### Nightly automation with cron
-
-1. Open root crontab:
-
-```bash
-sudo crontab -e
-```
-
-1. Add a nightly job (runs at 3:00 AM):
-
-```cron
-0 3 * * * cd /path-to-plex-album-auto-rater && docker-compose up plex-album-auto-rater
-```
-
-- Update the path `/path-to-plex-album-auto-rater` to your repository location.
-- Logs are automatically managed by Docker.
-
-### Viewing Logs
-
-The application outputs logs to the Docker container's STDOUT, which Docker automatically captures and rotates.
-
-**View logs in real-time:**
-
-```bash
-docker-compose logs -f plex-album-auto-rater
-```
-
-**View last 50 log lines:**
-
-```bash
-docker-compose logs --tail=50 plex-album-auto-rater
-```
-
-**Log rotation details:**
-
-- Individual log files are limited to **10 MB**
-- Docker keeps the **latest 3 rotated files** (~30 MB total)
-- Logs are stored in Docker's data directory and automatically rotated
-
-## Updating
-
-To update to a new version:
-
-### **Option A**: Update to latest development version (main branch)
-
-```bash
-git pull origin main
-```
-
-### **Option B**: Update to specific release version (stable)
-
-```bash
-git fetch --tags
-git checkout v1.0.1
-```
-
-> Replace `v1.0.1` with your desired release tag. See [releases](https://github.com/tobus3000/plex-album-auto-rater/releases) for available versions.
-
-1. Rebuild the Docker image:
-
-```bash
-docker-compose build --no-cache
-```
-
-1. Run with your configured settings (maybe in dry-run mode first):
-
-```bash
-docker-compose up plex-album-auto-rater
-```
-
-Check [CHANGELOG.md](CHANGELOG.md) for version-specific changes.
+- Standalone Docker Compose setup for local or NAS deployment
+- Docker Swarm Mode setup for clustered deployments
+- Cronjob scheduling and automation
+- Image building and pushing to Docker Hub
 
 ## ⚠️ Important Plex Notes
 

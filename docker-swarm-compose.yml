@@ -3,11 +3,20 @@ version: "3.8"
 services:
   plex-album-auto-rater:
     image: tobotec/plex-album-auto-rater:latest
-    configs:
-      - source: plex-album-auto-rater-env
-        target: /app/.env
     environment:
-      - PYTHONUNBUFFERED=1
+      environment:
+      PLEX_URL: ${PLEX_URL}
+      PLEX_TOKEN: ${PLEX_TOKEN}
+      PLEX_MUSIC_LIBRARY: ${PLEX_MUSIC_LIBRARY}
+      DRY_RUN: ${DRY_RUN}
+      NEUTRAL_RATING: ${NEUTRAL_RATING}
+      CONFIDENCE_WEIGHT: ${CONFIDENCE_WEIGHT}
+      MIN_COVERAGE: ${MIN_COVERAGE}
+      MIN_TRACK_DURATION: ${MIN_TRACK_DURATION}
+      ROUNDING_BIAS_BAD_ALBUM: ${ROUNDING_BIAS_BAD_ALBUM}
+      ROUNDING_BIAS_GOOD_ALBUM: ${ROUNDING_BIAS_GOOD_ALBUM}
+      UNRATE_EMPTY_ALBUMS: ${UNRATE_EMPTY_ALBUMS}
+      PYTHONUNBUFFERED: "1"
     logging:
       driver: "json-file"
       options:
@@ -22,11 +31,7 @@ services:
           - node.role == worker
       labels:
         - "swarm.cronjob.enable=true"
-        - "swarm.cronjob.schedule=0 1 * * *"
+        - "swarm.cronjob.schedule=0 3 * * *"
         - "swarm.cronjob.skip-running=false"
       restart_policy:
         condition: none
-
-configs:
-  plex-album-auto-rater-env:
-    external: true

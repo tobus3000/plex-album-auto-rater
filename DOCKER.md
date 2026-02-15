@@ -1,202 +1,53 @@
-# Docker Setup Guide
+# Plex Album Auto-Rater
 
-This document covers standalone Docker setup and Docker Swarm Mode deployment for Plex Album Auto-Rater.
+Automatically rate your Plex music albums based on track ratings and configurable scoring rules.
 
-## Prerequisites
+This image is published on Docker Hub:
 
-- Plex Media Server (Plex Pass recommended)
-- Docker & Docker Compose
-- Linux host (for cron/swarm scheduling)
-- Python 3.12+ (used inside container)
+```plaintext
+tobotec/plex-album-auto-rater:latest
+```
 
-## Configuration
+## Setup options
 
-Create a `.env` file in the repository root with your settings:
+* [Option 1 – Standalone Docker (Docker Hub Image)](#-option-1--standalone-docker-docker-hub-image)
+* [Option 2 – Docker Swarm Mode (Cluster / Scheduled Job)](#-option-2--docker-swarm-mode-cluster--scheduled-job)
 
-```bash
+## ⚙️ Configuration
+
+All setup options read the configuration from a `.env` file.  
+Create a `.env` file in your working directory:
+
+```env
 # Required
-PLEX_URL=http://plex:32400
-PLEX_TOKEN=YOUR_PLEX_TOKEN
+PLEX_URL=http://your-plex-server:32400
+PLEX_TOKEN=your_token_here
 PLEX_MUSIC_LIBRARY=Music
 
 # Safety
-DRY_RUN=true
+DRY_RUN=false
 
 # Algorithm tuning
-NEUTRAL_RATING=3.0
-CONFIDENCE_WEIGHT=4
-MIN_COVERAGE=0.2
+NEUTRAL_RATING=2.0
+CONFIDENCE_WEIGHT=3
+MIN_COVERAGE=0.4
 MIN_TRACK_DURATION=60
 ROUNDING_BIAS_BAD_ALBUM=0.65
 ROUNDING_BIAS_GOOD_ALBUM=0.45
 
-# Features
-UNRATE_EMPTY_ALBUMS=false
-```
-
-> Tip: Keep `DRY_RUN=true` for your first run to preview actions without modifying Plex ratings.
-
-## Option 1: Standalone local Docker Compose
-
-### Installation
-
-1. Clone the repository:
-
-#### Latest development version (main branch)
-
-```bash
-git clone https://github.com/tobus3000/plex-album-auto-rater.git
-cd plex-album-auto-rater
-```
-
-#### Specific release version (stable)
-
-```bash
-git clone --branch v1.0.1 https://github.com/tobus3000/plex-album-auto-rater.git
-cd plex-album-auto-rater
-```
-
-> Replace `v1.0.1` with your desired release tag. See [releases](https://github.com/tobus3000/plex-album-auto-rater/releases) for available versions.
-
-1. Build the Docker image:
-
-```bash
-docker-compose build
-```
-
-### Usage
-
-#### Manual run
-
-```bash
-docker-compose up plex-album-auto-rater
-```
-
-You should see log output listing albums that would be rated in Plex. The application logs all operations with timestamps and severity levels.
-
-Once verified, disable dry-run mode:
-
-```bash
-# Disable dry-run
-sed -i 's/DRY_RUN=true/DRY_RUN=false/' .env
-docker-compose up plex-album-auto-rater
-```
-
-#### Nightly automation with cron
-
-1. Open root crontab:
-
-```bash
-sudo crontab -e
-```
-
-1. Add a nightly job (runs at 3:00 AM):
-
-```cron
-0 3 * * * cd /path-to-plex-album-auto-rater && docker-compose up plex-album-auto-rater
-```
-
-- Update the path `/path-to-plex-album-auto-rater` to your repository location.
-- Logs are automatically managed by Docker.
-
-### Viewing Logs
-
-The application outputs logs to the Docker container's STDOUT, which Docker automatically captures and rotates.
-
-**View logs in real-time:**
-
-```bash
-docker-compose logs -f plex-album-auto-rater
-```
-
-**View last 50 log lines:**
-
-```bash
-docker-compose logs --tail=50 plex-album-auto-rater
-```
-
-**Log rotation details:**
-
-- Individual log files are limited to **10 MB**
-- Docker keeps the **latest 3 rotated files** (~30 MB total)
-- Logs are stored in Docker's data directory and automatically rotated
-
-### Updating
-
-#### Update to latest development version (main branch)
-
-```bash
-git pull origin main
-```
-
-#### Update to specific release version (stable)
-
-```bash
-git fetch --tags
-git checkout v1.0.1
-```
-
-> Replace `v1.0.1` with your desired release tag.
-
-Rebuild the Docker image:
-
-```bash
-docker-compose build --no-cache
-```
-
-Run with your configured settings:
-
-```bash
-docker-compose up plex-album-auto-rater
+# Feature
+UNRATE_EMPTY_ALBUMS=true
 ```
 
 ---
 
-## Option 2: Standalone Docker from Docker Hub
+# 🐳 Option 1 – Standalone Docker (Docker Hub Image)
 
-### Installation
+The simplest way to run the container using Docker directly.
 
-1. Pull the latest image from Docker Hub:
+---
 
-```bash
-docker pull tobotec/plex-album-auto-rater:latest
-```
-
-### Usage
-
-#### Manual run
-
-```bash
-docker run --rm \
-  --env-file .env \
-  tobotec/plex-album-auto-rater:latest
-```
-
-#### Nightly automation with cron
-
-1. Open root crontab:
-
-```bash
-sudo crontab -e
-```
-
-1. Add a nightly job (runs at 3:00 AM):
-
-```cron
-0 3 * * * cd /path-to-plex-album-auto-rater && docker run --rm --env-file .env tobotec/plex-album-auto-rater:latest
-```
-
-- Update the path `/path-to-plex-album-auto-rater` to your repository location.
-
-### Viewing Logs
-
-Since the container is run with `--rm`, logs are only available during execution. For scheduled runs, consider redirecting output to a file:
-
-```cron
-0 3 * * * cd /path-to-plex-album-auto-rater && docker run --rm --env-file .env tobotec/plex-album-auto-rater:latest >> plex-auto-rater.log 2>&1
-```
-
-### Updating
+## 📦 Installation
 
 Pull the latest image:
 
@@ -206,24 +57,80 @@ docker pull tobotec/plex-album-auto-rater:latest
 
 ---
 
-## Option 3: Docker Swarm Mode
+## ▶️ Manual Run
 
-Docker Swarm Mode allows you to deploy and manage containers across a cluster of machines, with automatic scheduling, service management, and orchestration. This guide covers deploying Plex Album Auto-Rater as a scheduled cronjob in Swarm Mode.
+```bash
+docker run --rm \
+  --env-file .env \
+  tobotec/plex-album-auto-rater:latest
+```
 
-### Swarm Prerequisites
+The container will execute once and exit.
 
-- Docker Swarm initialized (`docker swarm init` on the manager node)
-- `swarm-cronjob` service deployed on the swarm (see [swarm-cronjob](https://github.com/crazy-max/swarm-cronjob))
+---
 
-### Swarm Setup
+## ⏰ Nightly Automation with Cron
 
-1. **Initialize Docker Swarm** (if not already done):
+Edit root crontab:
+
+```bash
+sudo crontab -e
+```
+
+Add a nightly job (runs at 3:00 AM):
+
+```bash
+0 3 * * * cd /path-to-plex-album-auto-rater && docker run --rm --env-file .env tobotec/plex-album-auto-rater:latest
+```
+
+Update `/path-to-plex-album-auto-rater` to your actual directory.
+
+---
+
+## 📜 Viewing Logs
+
+Since the container runs with `--rm`, logs are visible only during execution.
+
+To persist logs for scheduled runs:
+
+```bash
+0 3 * * * cd /path-to-plex-album-auto-rater && docker run --rm --env-file .env tobotec/plex-album-auto-rater:latest >> plex-auto-rater.log 2>&1
+```
+
+---
+
+## 🔄 Updating
+
+Pull the latest version:
+
+```bash
+docker pull tobotec/plex-album-auto-rater:latest
+```
+
+---
+
+# 🐳 Option 2 – Docker Swarm Mode (Cluster / Scheduled Job)
+
+Deploy Plex Album Auto-Rater as a scheduled cron job in Docker Swarm.
+
+---
+
+## 📋 Prerequisites
+
+* Docker Swarm initialized
+* `swarm-cronjob` service deployed
+
+---
+
+## 🧱 Initialize Swarm (if needed)
 
 ```bash
 docker swarm init
 ```
 
-1. **Deploy swarm-cronjob service** (on the manager node):
+---
+
+## ⏱ Deploy swarm-cronjob Service
 
 ```bash
 docker service create \
@@ -233,118 +140,163 @@ docker service create \
   crazymax/swarm-cronjob:latest
 ```
 
-1. **Create the stack configuration** using `docker-swarm-compose.yml`:
+---
 
-The compose file pulls the image from Docker Hub and uses Docker Swarm config. Key features:
+## 📝 Create `docker-swarm-compose.yml`
 
-- **Image**: `tobotec/plex-album-auto-rater:latest` (pulled from Docker Hub)
-- **Replicas**: Set to 0 (swarm-cronjob controls execution)
-- **Placement**: Constrained to worker nodes
-- **Restart Policy**: `none` (required for cronjob mode)
-- **Cronjob Schedule**: `* * * * *` (customize as needed)
+```yaml
+version: "3.8"
 
-1. **Create Swarm config for .env file**:
+services:
+  plex-album-auto-rater:
+    image: tobotec/plex-album-auto-rater:latest
+    environment:
+      PLEX_URL: ${PLEX_URL}
+      PLEX_TOKEN: ${PLEX_TOKEN}
+      PLEX_MUSIC_LIBRARY: ${PLEX_MUSIC_LIBRARY}
+      DRY_RUN: ${DRY_RUN}
+      NEUTRAL_RATING: ${NEUTRAL_RATING}
+      CONFIDENCE_WEIGHT: ${CONFIDENCE_WEIGHT}
+      MIN_COVERAGE: ${MIN_COVERAGE}
+      MIN_TRACK_DURATION: ${MIN_TRACK_DURATION}
+      ROUNDING_BIAS_BAD_ALBUM: ${ROUNDING_BIAS_BAD_ALBUM}
+      ROUNDING_BIAS_GOOD_ALBUM: ${ROUNDING_BIAS_GOOD_ALBUM}
+      UNRATE_EMPTY_ALBUMS: ${UNRATE_EMPTY_ALBUMS}
+      PYTHONUNBUFFERED: "1"
 
-```bash
-docker config create plex-album-auto-rater-env .env
+    deploy:
+      mode: replicated
+      replicas: 0
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: none
+      labels:
+        - "swarm.cronjob.enable=true"
+        - "swarm.cronjob.schedule=0 3 * * *"
+        - "swarm.cronjob.skip-running=false"
 ```
 
-1. **Deploy the stack**:
+---
+
+## 🚀 Deploy the Stack
+
+Load your `.env` into the shell:
+
+```bash
+export $(grep -v '^#' .env | xargs)
+```
+
+Deploy:
 
 ```bash
 docker stack deploy -c docker-swarm-compose.yml plex-album-auto-rater
 ```
 
-1. **Verify deployment**:
+Verify:
 
 ```bash
 docker stack services plex-album-auto-rater
 ```
 
-### Swarm Configuration
+---
 
-The `.env` file is mounted from the Docker Swarm config: `plex-album-auto-rater-env`
+## 🕒 Cron Schedule Examples
 
-Update this config to change configuration:
+Edit the schedule under:
 
-```bash
-docker config rm plex-album-auto-rater-env
-docker config create plex-album-auto-rater-env .env
+```
+swarm.cronjob.schedule=
 ```
 
-Changes are automatically picked up on the next scheduled run.
+Common patterns:
 
-### Cronjob Scheduling
-
-Edit the cronjob schedule in `docker-swarm-compose.yml` under the `swarm.cronjob.schedule` label:
-
-```yaml
-labels:
-  - "swarm.cronjob.schedule=0 3 * * *"  # Runs at 3:00 AM daily
+```
+* * * * *    # Every minute
+0 * * * *    # Every hour
+0 3 * * *    # Daily at 3:00 AM
+0 2 * * 0    # Weekly (Sunday 2 AM)
+0 0 1 * *    # Monthly (1st at midnight)
 ```
 
-Common schedules:
+---
 
-- `* * * * *` - Every minute
-- `0 * * * *` - Every hour
-- `0 3 * * *` - Daily at 3:00 AM
-- `0 2 * * 0` - Weekly on Sunday at 2:00 AM
-- `0 0 1 * *` - Monthly on the 1st at midnight
+## 📜 Swarm Logs
 
-### Swarm Logs
-
-**View logs from completed tasks:**
+View service logs:
 
 ```bash
 docker service logs plex-album-auto-rater
 ```
 
-**View logs from a specific task:**
-
-```bash
-docker task ps --filter "service=plex-album-auto-rater"
-docker logs <task-id>
-```
-
-**Stream logs in real-time:**
+Stream logs:
 
 ```bash
 docker service logs -f plex-album-auto-rater_plex-album-auto-rater
 ```
 
-### Swarm Updating
+Inspect tasks:
 
-1. **Pull the latest image**:
+```bash
+docker stack ps plex-album-auto-rater
+```
+
+---
+
+## 🔄 Updating in Swarm
+
+Pull the latest image:
 
 ```bash
 docker pull tobotec/plex-album-auto-rater:latest
 ```
 
-1. **Force service update**:
+Force service update:
 
 ```bash
 docker service update --force plex-album-auto-rater_plex-album-auto-rater
 ```
 
-1. **Or redeploy the entire stack**:
+Or redeploy:
 
 ```bash
 docker stack rm plex-album-auto-rater
 docker stack deploy -c docker-swarm-compose.yml plex-album-auto-rater
 ```
 
-### Troubleshooting Swarm Deployment
+---
 
-#### Service not running
+## 🛠 Troubleshooting
 
-- Verify swarm-cronjob is running: `docker service ls | grep swarm-cronjob`
-- Check service status: `docker stack ps plex-album-auto-rater`
-- Review logs: `docker service logs plex-album-auto-rater`
-- Check `.env` config exists and is readable: `docker config inspect plex-album-auto-rater-env`
-- Verify all worker nodes have access to the config and can pull the image
+**Service not running**
 
-#### Cronjob not firing
+```bash
+docker service ls | grep swarm-cronjob
+docker stack ps plex-album-auto-rater
+docker service logs plex-album-auto-rater
+```
 
-- Verify schedule syntax: `docker service ls --filter "name=plex-album-auto-rater" -q | xargs docker service inspect`
-- Check swarm-cronjob logs: `docker service logs swarm-cronjob`
-- Ensure at least one worker node is available
+**Cronjob not firing**
+
+```bash
+docker service logs swarm-cronjob
+```
+
+Ensure:
+
+* Valid cron syntax
+* At least one worker node available
+* `replicas: 0` is set
+* `restart_policy.condition: none` is set
+
+---
+
+# Summary
+
+| Mode              | Best For                                       |
+| ----------------- | ---------------------------------------------- |
+| Standalone Docker | Single host, simple cron usage                 |
+| Docker Swarm      | Clustered environments, centralized scheduling |
+
+Both modes pull the image directly from Docker Hub and do not require building locally.

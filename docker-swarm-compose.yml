@@ -5,6 +5,8 @@ services:
     image: tobotec/plex-album-auto-rater:latest
     volumes:
       - /mnt/Docker/shared-volumes/plex-album-auto-rater/.env:/app/.env:ro
+    env_file:
+      - /app/.env
     environment:
       - PYTHONUNBUFFERED=1
     logging:

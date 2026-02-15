@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Nothing yet
+- Changed to using Docker Swarm configs instead of NFS-mounted .env file for configuration management in Swarm mode.
 
 ## [1.0.2] - 2026-02-14
 

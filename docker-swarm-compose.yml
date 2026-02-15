@@ -3,10 +3,9 @@ version: "3.8"
 services:
   plex-album-auto-rater:
     image: tobotec/plex-album-auto-rater:latest
-    volumes:
-      - /mnt/Docker/shared-volumes/plex-album-auto-rater/.env:/app/.env:ro
-    env_file:
-      - /app/.env
+    configs:
+      - source: plex-album-auto-rater-env
+        target: /app/.env
     environment:
       - PYTHONUNBUFFERED=1
     logging:
@@ -27,3 +26,7 @@ services:
         - "swarm.cronjob.skip-running=false"
       restart_policy:
         condition: none
+
+configs:
+  plex-album-auto-rater-env:
+    external: true

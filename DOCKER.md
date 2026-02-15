@@ -1,6 +1,6 @@
 # Docker Setup Guide
 
-This document covers both standalone Docker Compose setup and Docker Swarm Mode deployment for Plex Album Auto-Rater.
+This document covers standalone Docker setup and Docker Swarm Mode deployment for Plex Album Auto-Rater.
 
 ## Prerequisites
 
@@ -36,7 +36,7 @@ UNRATE_EMPTY_ALBUMS=false
 
 > Tip: Keep `DRY_RUN=true` for your first run to preview actions without modifying Plex ratings.
 
-## Option 1: Standalone Docker Compose
+## Option 1: Standalone local Docker Compose
 
 ### Installation
 
@@ -152,14 +152,67 @@ docker-compose up plex-album-auto-rater
 
 ---
 
-## Option 2: Docker Swarm Mode
+## Option 2: Standalone Docker from Docker Hub
+
+### Installation
+
+1. Pull the latest image from Docker Hub:
+
+```bash
+docker pull tobotec/plex-album-auto-rater:latest
+```
+
+### Usage
+
+#### Manual run
+
+```bash
+docker run --rm \
+  --env-file .env \
+  tobotec/plex-album-auto-rater:latest
+```
+
+#### Nightly automation with cron
+
+1. Open root crontab:
+
+```bash
+sudo crontab -e
+```
+
+1. Add a nightly job (runs at 3:00 AM):
+
+```cron
+0 3 * * * cd /path-to-plex-album-auto-rater && docker run --rm --env-file .env tobotec/plex-album-auto-rater:latest
+```
+
+- Update the path `/path-to-plex-album-auto-rater` to your repository location.
+
+### Viewing Logs
+
+Since the container is run with `--rm`, logs are only available during execution. For scheduled runs, consider redirecting output to a file:
+
+```cron
+0 3 * * * cd /path-to-plex-album-auto-rater && docker run --rm --env-file .env tobotec/plex-album-auto-rater:latest >> plex-auto-rater.log 2>&1
+```
+
+### Updating
+
+Pull the latest image:
+
+```bash
+docker pull tobotec/plex-album-auto-rater:latest
+```
+
+---
+
+## Option 3: Docker Swarm Mode
 
 Docker Swarm Mode allows you to deploy and manage containers across a cluster of machines, with automatic scheduling, service management, and orchestration. This guide covers deploying Plex Album Auto-Rater as a scheduled cronjob in Swarm Mode.
 
 ### Swarm Prerequisites
 
 - Docker Swarm initialized (`docker swarm init` on the manager node)
-- Shared NFS volume accessible from all worker nodes
 - `swarm-cronjob` service deployed on the swarm (see [swarm-cronjob](https://github.com/crazy-max/swarm-cronjob))
 
 ### Swarm Setup
@@ -182,16 +235,21 @@ docker service create \
 
 1. **Create the stack configuration** using `docker-swarm-compose.yml`:
 
-The compose file pulls the image from Docker Hub and uses NFS-mounted `.env` file. Key features:
+The compose file pulls the image from Docker Hub and uses Docker Swarm config. Key features:
 
 - **Image**: `tobotec/plex-album-auto-rater:latest` (pulled from Docker Hub)
-- **Volume**: NFS-mounted `.env` file at `/mnt/Docker/shared-volumes/plex-album-auto-rater/.env`
 - **Replicas**: Set to 0 (swarm-cronjob controls execution)
 - **Placement**: Constrained to worker nodes
 - **Restart Policy**: `none` (required for cronjob mode)
 - **Cronjob Schedule**: `* * * * *` (customize as needed)
 
-4. **Deploy the stack**:
+1. **Create Swarm config for .env file**:
+
+```bash
+docker config create plex-album-auto-rater-env .env
+```
+
+1. **Deploy the stack**:
 
 ```bash
 docker stack deploy -c docker-swarm-compose.yml plex-album-auto-rater
@@ -205,12 +263,13 @@ docker stack services plex-album-auto-rater
 
 ### Swarm Configuration
 
-The `.env` file is mounted from the NFS share: `/mnt/Docker/shared-volumes/plex-album-auto-rater/.env`
+The `.env` file is mounted from the Docker Swarm config: `plex-album-auto-rater-env`
 
-Update this file on the NFS share to change configuration:
+Update this config to change configuration:
 
 ```bash
-sudo vi /mnt/Docker/shared-volumes/plex-album-auto-rater/.env
+docker config rm plex-album-auto-rater-env
+docker config create plex-album-auto-rater-env .env
 ```
 
 Changes are automatically picked up on the next scheduled run.
@@ -281,12 +340,8 @@ docker stack deploy -c docker-swarm-compose.yml plex-album-auto-rater
 - Verify swarm-cronjob is running: `docker service ls | grep swarm-cronjob`
 - Check service status: `docker stack ps plex-album-auto-rater`
 - Review logs: `docker service logs plex-album-auto-rater`
-
-#### NFS mount issues
-
-- Verify NFS share is accessible: `ls -la /mnt/Docker/shared-volumes/plex-album-auto-rater/`
-- Check `.env` file exists and is readable: `cat /mnt/Docker/shared-volumes/plex-album-auto-rater/.env`
-- Verify all worker nodes have NFS mount access
+- Check `.env` config exists and is readable: `docker config inspect plex-album-auto-rater-env`
+- Verify all worker nodes have access to the config and can pull the image
 
 #### Cronjob not firing
 

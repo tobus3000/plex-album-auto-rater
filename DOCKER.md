@@ -309,7 +309,7 @@ docker logs <task-id>
 **Stream logs in real-time:**
 
 ```bash
-docker service logs -f plex-album-auto-rater
+docker service logs -f plex-album-auto-rater_plex-album-auto-rater
 ```
 
 ### Swarm Updating

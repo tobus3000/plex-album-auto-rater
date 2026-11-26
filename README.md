@@ -63,6 +63,9 @@ The application uses Python's standard logging module with INFO level by default
 - **DEBUG**: Detailed operational information (track processing, skipped albums)
 
 Logs can be captured and redirected as needed (e.g., to a file via cron or Docker logging drivers).
+If a Plex read times out while processing an album, the failure is logged and
+processing continues with the next album. A timed-out rating request may still
+have been applied by Plex.
 
 ## Configuration Options
 
@@ -74,13 +77,23 @@ Logs can be captured and redirected as needed (e.g., to a file via cron or Docke
 | `PLEX_TOKEN` | — | Plex authentication token. **Required**. |
 | `PLEX_MUSIC_LIBRARY` | `Music` | Name of the music library to process. |
 | `DRY_RUN` | `true` | Preview mode. Set to `false` to apply ratings to Plex. |
-| `NEUTRAL_RATING` | `3.0` | Neutral prior rating for Bayesian calculation (1-10 scale). |
+| `NEUTRAL_RATING` | `2.5` | Neutral prior rating for Bayesian calculation (1-5 star scale). |
 | `CONFIDENCE_WEIGHT` | `4` | Confidence constant for shrinkage (higher = more conservative). |
 | `MIN_COVERAGE` | `0.2` | Minimum fraction of rated tracks required to rate album (0.0-1.0). |
 | `MIN_TRACK_DURATION` | `60` | Minimum track duration in seconds (excludes short tracks). |
 | `UNRATE_EMPTY_ALBUMS` | `false` | Automatically remove ratings from albums that no longer meet coverage threshold. |
 | `ROUNDING_BIAS_BAD_ALBUM` | `0.65` | Harsher rounding for albums below neutral rating. |
 | `ROUNDING_BIAS_GOOD_ALBUM` | `0.45` | Gentler rounding for albums at or above neutral rating. |
+
+### Finding your Plex token
+
+1. Sign in to Plex Web with the account that rates your tracks.
+2. Open a library item, select **Get Info**, and click **View XML**.
+3. Copy the value of `X-Plex-Token` from the XML page's URL into `PLEX_TOKEN` in your `.env` file.
+
+Keep the token private. Plex notes that this method provides a temporary token;
+see its [token guide](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)
+and [authentication guide](https://forums.plex.tv/t/authenticating-with-plex/609370) for longer-lived authentication.
 
 ### UNRATE_EMPTY_ALBUMS Feature
 
@@ -105,7 +118,8 @@ The rating algorithm is based on a Bayesian Shrinkage Rating system with determi
 
 The algorithm calculates ratings on a 1–5 star scale (matching Plex’s user-facing display).  
 However, Plex stores ratings internally using a 1–10 scale (called “tenths”).  
-The conversion is automatic:
+Track ratings are divided by 2 before the calculation; hard overrides use the
+original Plex values. The final conversion is automatic:
 
 - Algorithm calculates: 3.0 stars
 - Plex stores internally: 6 (tenths)

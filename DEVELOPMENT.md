@@ -1,5 +1,15 @@
 # Development Notes
 
+## Tests and coverage
+
+Install the application requirements and the `coverage` package in your Python
+environment. The tests mock Plex, so a running Plex server is not required.
+
+```bash
+python -m coverage run --branch --source=plex_album_auto_rater -m unittest -v test_plex_album_auto_rater
+python -m coverage report -m --fail-under=100
+```
+
 ## Docker Image Publishing
 
 ### Building

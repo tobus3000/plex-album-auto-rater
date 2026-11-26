@@ -32,6 +32,7 @@ import logging
 from typing import Optional
 from plexapi.server import PlexServer
 from plexapi.library import LibrarySection
+from requests.exceptions import ReadTimeout
 
 # Configure logging to output to console (STDOUT)
 logging.basicConfig(
@@ -62,10 +63,10 @@ def asymmetric_rounding(final_rating: float) -> int:
     Convert 1-5 star rating to Plex internal 1-10 scale with asymmetric rounding.
     Albums below NEUTRAL_RATING are rounded more harshly; above or at NEUTRAL_RATING
     are rounded more gently. Minimum rating is 1★ (Plex = 2).
-    
+
     Args:
         final_rating: Album rating in 1-5 star scale.
-    
+
     Returns:
         int: Album rating in Plex internal 1-10 scale.
     """
@@ -118,7 +119,7 @@ def process_album_tracks(album, include_all_for_override: bool = False) -> list[
         include_all_for_override: If True, include all rated tracks regardless of duration.
 
     Returns:
-        List of track ratings (1-5).
+        List of track ratings on Plex's 0-10 scale.
     """
     ratings = []
     for track in album.tracks():
@@ -130,7 +131,9 @@ def process_album_tracks(album, include_all_for_override: bool = False) -> list[
                     continue
             ratings.append(track.userRating)
         except (AttributeError, TypeError) as e:
-            logger.debug("Error processing track %s: %s", getattr(track, "title", None), e)
+            logger.debug(
+                "Error processing track %s: %s", getattr(track, "title", None), e
+            )
     return ratings
 
 
@@ -180,15 +183,22 @@ def process_single_album(album) -> tuple[bool, Optional[int], int, int]:
         return False, None, rated_count, total_tracks
 
     # Bayesian rating
-    new_rating = calculate_album_rating(rated_track_ratings, rated_count, total_tracks)
+    new_rating = calculate_album_rating(
+        [rating / 2 for rating in rated_track_ratings], rated_count, total_tracks
+    )
     if new_rating is None or new_rating == current_rating:
         return False, None, rated_count, total_tracks
 
     return True, new_rating, rated_count, total_tracks
 
 
-def log_album_update(album, rated_count: int, total_tracks: int,
-                     current_rating: Optional[int], new_rating: Optional[int]) -> None:
+def log_album_update(
+    album,
+    rated_count: int,
+    total_tracks: int,
+    current_rating: Optional[int],
+    new_rating: Optional[int],
+) -> None:
     """
     Log album rating updates.
 
@@ -204,11 +214,19 @@ def log_album_update(album, rated_count: int, total_tracks: int,
     old_rating_str = f"{display_current} stars" if display_current else "None"
     logger.info(
         "%s - %s\n  Rated tracks : %d/%d\n  New rating   : %s stars\n  Old rating   : %s\n",
-        album.parentTitle, album.title, rated_count, total_tracks, display_new, old_rating_str
+        album.parentTitle,
+        album.title,
+        rated_count,
+        total_tracks,
+        display_new,
+        old_rating_str,
     )
     logger.info(
         "Album update needed: %s - %s (rating: %s → %s)",
-        album.parentTitle, album.title, display_current or "None", display_new
+        album.parentTitle,
+        album.title,
+        display_current or "None",
+        display_new,
     )
 
 
@@ -227,7 +245,11 @@ def apply_album_rating(album, new_rating: Optional[int]) -> bool:
         return False
     try:
         album.rate(new_rating)
-        logger.info("Successfully rated album %s as %s in Plex (1-10 scale)", album.title, new_rating)
+        logger.info(
+            "Successfully rated album %s as %s in Plex (1-10 scale)",
+            album.title,
+            new_rating,
+        )
         return True
     except (OSError, ValueError) as e:
         logger.error("Failed to rate album %s: %s", album.title, e)
@@ -280,7 +302,9 @@ def log_configuration() -> None:
     logger.info("Unrate empty albums  : %s", UNRATE_EMPTY_ALBUMS)
 
 
-def log_summary(albums_processed: int, albums_updated: int, albums_skipped: int) -> None:
+def log_summary(
+    albums_processed: int, albums_updated: int, albums_skipped: int
+) -> None:
     """
     Log final statistics after processing all albums.
 
@@ -314,33 +338,41 @@ def main() -> None:
         return
 
     for album in albums:
-        needs_update, new_rating, rated_count, total_tracks = process_single_album(album)
+        album_title = "<unknown>"
+        try:
+            album_title = album.title
+            needs_update, new_rating, rated_count, total_tracks = process_single_album(
+                album
+            )
 
-        if not needs_update:
-            if new_rating is None:
-                albums_skipped += 1
-            continue
-
-        albums_processed += 1
-
-        if new_rating is None:
-            logger.info("Album %s no longer meets coverage threshold", album.title)
-            if DRY_RUN:
-                logger.info("[DRY RUN] Album rating not removed")
+            if not needs_update:
+                if new_rating is None:
+                    albums_skipped += 1
                 continue
-            if unrate_album(album):
+
+            albums_processed += 1
+
+            if new_rating is None:
+                logger.info("Album %s no longer meets coverage threshold", album.title)
+                if DRY_RUN:
+                    logger.info("[DRY RUN] Album rating not removed")
+                    continue
+                if unrate_album(album):
+                    albums_updated += 1
+                continue
+
+            current_rating = album.userRating
+            log_album_update(album, rated_count, total_tracks, current_rating, new_rating)
+
+            if DRY_RUN:
+                logger.info("[DRY RUN] Album rating not updated")
+                continue
+
+            if apply_album_rating(album, new_rating):
                 albums_updated += 1
-            continue
-
-        current_rating = album.userRating
-        log_album_update(album, rated_count, total_tracks, current_rating, new_rating)
-
-        if DRY_RUN:
-            logger.info("[DRY RUN] Album rating not updated")
-            continue
-
-        if apply_album_rating(album, new_rating):
-            albums_updated += 1
+        except ReadTimeout as e:
+            logger.warning("Plex read timeout for album %s; skipping: %s", album_title, e)
+            albums_skipped += 1
 
     log_summary(albums_processed, albums_updated, albums_skipped)
 

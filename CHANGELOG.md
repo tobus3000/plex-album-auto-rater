@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-11-26
+
+### Added
+
+- Added automated tests with full statement and branch coverage of the application, and documented how to run them.
+- Added instructions for obtaining a Plex authentication token.
+
+### Changed
+
+- Declared `requests` as a direct dependency for Plex timeout handling.
+
+### Fixed
+
+- Corrected the conversion of Plex track ratings to the star scale used in album calculations, while preserving the hard rating overrides.
+- Logged Plex read timeouts and continued processing subsequent albums instead of terminating the run ([#1](https://github.com/tobus3000/plex-album-auto-rater/issues/1)).
+
+---
+
 ## [1.0.3] - 2026-02-15
 
 ### Changed
@@ -105,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.0.4]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.4
 [1.0.3]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.3
 [1.0.2]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.2
 [1.0.1]: https://github.com/tobus3000/plex-album-auto-rater/releases/tag/v1.0.1
